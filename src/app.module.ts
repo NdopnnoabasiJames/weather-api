@@ -4,15 +4,17 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { DatabaseModule } from './database/database.module';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
+import { LocationModule } from './location/location.module';
 import appConfig from './config/app.config';
 import databaseConfig from './config/database.config';
 import throttleConfig from './config/throttle.config';
+import openweatherConfig from './config/openweather.config';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, databaseConfig, throttleConfig],
+      load: [appConfig, databaseConfig, throttleConfig, openweatherConfig],
       envFilePath: '.env',
     }),
     ThrottlerModule.forRootAsync({
@@ -28,6 +30,7 @@ import throttleConfig from './config/throttle.config';
       }),
     }),
     DatabaseModule,
+    LocationModule,
   ],
   controllers: [],
   providers: [
