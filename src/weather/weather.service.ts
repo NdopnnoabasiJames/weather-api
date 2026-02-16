@@ -319,6 +319,95 @@ export class WeatherService {
     this.logger.log(`Deleted weather request: ${id}`);
   }
 
+  async exportData(format: 'json' | 'csv'): Promise<string | WeatherRequestResponseDto[]> {
+    this.logger.log(`Exporting weather data in ${format} format`);
+
+    const requests = await this.weatherRequestRepository.find({
+      order: { createdAt: 'DESC' },
+    });
+
+    if (requests.length === 0) {
+      throw new NotFoundException('No weather request records found to export');
+    }
+
+    if (format === 'json') {
+      return this.exportAsJson(requests);
+    } else if (format === 'csv') {
+      return this.exportAsCsv(requests);
+    } else {
+      throw new BadRequestException('Unsupported export format');
+    }
+  }
+
+  private exportAsJson(requests: WeatherRequest[]): WeatherRequestResponseDto[] {
+    return requests.map((req) => this.mapToResponseDto(req));
+  }
+
+  private exportAsCsv(requests: WeatherRequest[]): string {
+    // Define CSV headers
+    const headers = [
+      'id',
+      'locationInput',
+      'locationName',
+      'state',
+      'country',
+      'latitude',
+      'longitude',
+      'startDate',
+      'endDate',
+      'avgTemperature',
+      'minTemperature',
+      'maxTemperature',
+      'note',
+      'createdAt',
+    ];
+
+    // Build CSV rows
+    const rows = requests.map((request) => {
+      if (!request.location) {
+        throw new HttpException(
+          'Weather request location data is missing',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+
+      return [
+        request.id,
+        this.escapeCsvValue(request.locationInput),
+        this.escapeCsvValue(request.location.name),
+        this.escapeCsvValue(request.location.state || ''),
+        this.escapeCsvValue(request.location.country),
+        request.location.latitude,
+        request.location.longitude,
+        request.startDate ? this.formatDate(request.startDate) : '',
+        request.endDate ? this.formatDate(request.endDate) : '',
+        request.avgTemperature || '',
+        request.minTemperature || '',
+        request.maxTemperature || '',
+        this.escapeCsvValue(request.note || ''),
+        this.formatDate(request.createdAt),
+      ].join(',');
+    });
+
+    // Combine headers and rows
+    return [headers.join(','), ...rows].join('\n');
+  }
+
+  private escapeCsvValue(value: string): string {
+    if (!value) return '';
+
+    // If value contains comma, quote, or newline, wrap in quotes and escape quotes
+    if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+      return `"${value.replace(/"/g, '""')}"`;
+    }
+
+    return value;
+  }
+
+  private formatDate(date: Date): string {
+    return new Date(date).toISOString();
+  }
+
   // Helper Methods
 
   private async findOrCreateLocation(resolvedLocation: {

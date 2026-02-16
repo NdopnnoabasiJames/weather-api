@@ -1,9 +1,11 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiParam } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { WeatherService } from './weather.service';
 import { GetWeatherDto } from './dto/get-weather.dto';
 import { CreateWeatherRequestDto } from './dto/create-weather-request.dto';
 import { UpdateWeatherRequestDto } from './dto/update-weather-request.dto';
+import { ExportWeatherDto } from './dto/export-weather.dto';
 import { CurrentWeatherResponseDto } from './dto/current-weather-response.dto';
 import { WeatherRequestResponseDto } from './dto/weather-request-response.dto';
 
@@ -72,6 +74,41 @@ export class WeatherController {
   })
   async findAll(): Promise<WeatherRequestResponseDto[]> {
     return this.weatherService.findAll();
+  }
+
+  @Get('export')
+  @ApiOperation({ summary: 'Export weather requests as JSON or CSV' })
+  @ApiQuery({
+    name: 'format',
+    enum: ['json', 'csv'],
+    description: 'Export format (json or csv)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Weather data exported successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad Request - Invalid format parameter',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'No weather request records found',
+  })
+  async export(
+    @Query() dto: ExportWeatherDto,
+    @Res() res: Response,
+  ): Promise<void> {
+    const data = await this.weatherService.exportData(dto.format);
+
+    if (dto.format === 'json') {
+      res.setHeader('Content-Type', 'application/json');
+      res.json(data);
+    } else if (dto.format === 'csv') {
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="weather-export.csv"');
+      res.send(data);
+    }
   }
 
   @Get(':id')
