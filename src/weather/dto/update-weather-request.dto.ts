@@ -1,15 +1,15 @@
-import { IsString, IsOptional, MinLength } from 'class-validator';
+import { IsString, IsOptional, MaxLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class UpdateWeatherRequestDto {
   @ApiProperty({
-    description: 'Updated location input',
-    example: 'Paris',
+    description: 'Optional note or comment about this weather request',
+    example: 'This data was requested for quarterly report analysis',
     required: false,
-    minLength: 2,
+    maxLength: 1000,
   })
   @IsOptional()
   @IsString()
-  @MinLength(2)
-  locationInput?: string;
+  @MaxLength(1000)
+  note?: string;
 }

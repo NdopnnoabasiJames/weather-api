@@ -197,7 +197,7 @@ export class WeatherService {
   async create(
     createDto: CreateWeatherRequestDto,
   ): Promise<WeatherRequestResponseDto> {
-    const { locationInput, startDate, endDate } = createDto;
+    const { locationInput, startDate, endDate, note } = createDto;
 
     // Step 1: Validate date range if provided
     if (startDate && endDate) {
@@ -247,13 +247,14 @@ export class WeatherService {
     // Step 7: Create and save WeatherRequest
     const weatherRequest = this.weatherRequestRepository.create({
       locationInput,
-      locationId: location.id,
+      location: location,
       startDate: startDate ? new Date(startDate) : undefined,
       endDate: endDate ? new Date(endDate) : undefined,
       rawApiResponse: weatherData,
       avgTemperature,
       minTemperature,
       maxTemperature,
+      note,
     });
 
     const savedRequest: WeatherRequest = await this.weatherRequestRepository.save(weatherRequest);
@@ -295,9 +296,9 @@ export class WeatherService {
       throw new NotFoundException(`Weather request with ID ${id} not found`);
     }
 
-    // Only allow updating locationInput
-    if (updateDto.locationInput) {
-      request.locationInput = updateDto.locationInput;
+    // Only allow updating the note field to preserve data integrity
+    if (updateDto.note !== undefined) {
+      request.note = updateDto.note;
     }
 
     const updated = await this.weatherRequestRepository.save(request);
@@ -391,6 +392,14 @@ export class WeatherService {
   private mapToResponseDto(
     weatherRequest: WeatherRequest,
   ): WeatherRequestResponseDto {
+    // Ensure location is loaded
+    if (!weatherRequest.location) {
+      throw new HttpException(
+        'Weather request location data is missing',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+
     return {
       id: weatherRequest.id,
       locationInput: weatherRequest.locationInput,
@@ -407,6 +416,7 @@ export class WeatherService {
       avgTemperature: weatherRequest.avgTemperature,
       minTemperature: weatherRequest.minTemperature,
       maxTemperature: weatherRequest.maxTemperature,
+      note: weatherRequest.note,
       createdAt: weatherRequest.createdAt,
       updatedAt: weatherRequest.updatedAt,
     };

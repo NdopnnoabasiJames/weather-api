@@ -91,16 +91,16 @@ export class WeatherController {
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Update a weather request (only locationInput)' })
+  @ApiOperation({ summary: 'Update weather request note (immutable core data)' })
   @ApiParam({ name: 'id', description: 'Weather request UUID' })
   @ApiResponse({
     status: 200,
-    description: 'Weather request updated successfully',
+    description: 'Weather request note updated successfully',
     type: WeatherRequestResponseDto,
   })
   @ApiResponse({
     status: 400,
-    description: 'Bad Request - Invalid input',
+    description: 'Bad Request - Invalid note input',
   })
   @ApiResponse({
     status: 404,

@@ -46,6 +46,9 @@ export class WeatherRequest {
   @Column({ type: 'float', nullable: true })
   maxTemperature: number;
 
+  @Column({ type: 'text', nullable: true })
+  note: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

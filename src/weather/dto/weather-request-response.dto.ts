@@ -45,6 +45,9 @@ export class WeatherRequestResponseDto {
   @ApiProperty({ required: false })
   maxTemperature?: number;
 
+  @ApiProperty({ required: false })
+  note?: string;
+
   @ApiProperty()
   createdAt: Date;
 
