@@ -35,9 +35,12 @@ async function bootstrap() {
   // Swagger Documentation
   const config = new DocumentBuilder()
     .setTitle('Weather API')
-    .setDescription('Production-ready NestJS Weather API with location resolution')
+    .setDescription(
+      'Production-ready NestJS Weather API with location resolution and caching',
+    )
     .setVersion('1.0')
     .addTag('location', 'Location resolution endpoints')
+    .addTag('weather', 'Current weather endpoints with Redis caching')
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);

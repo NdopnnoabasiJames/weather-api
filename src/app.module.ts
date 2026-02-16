@@ -3,18 +3,21 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { DatabaseModule } from './database/database.module';
+import { RedisModule } from './redis/redis.module';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
 import { LocationModule } from './location/location.module';
+import { WeatherModule } from './weather/weather.module';
 import appConfig from './config/app.config';
 import databaseConfig from './config/database.config';
 import throttleConfig from './config/throttle.config';
 import openweatherConfig from './config/openweather.config';
+import redisConfig from './config/redis.config';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, databaseConfig, throttleConfig, openweatherConfig],
+      load: [appConfig, databaseConfig, throttleConfig, openweatherConfig, redisConfig],
       envFilePath: '.env',
     }),
     ThrottlerModule.forRootAsync({
@@ -30,7 +33,9 @@ import openweatherConfig from './config/openweather.config';
       }),
     }),
     DatabaseModule,
+    RedisModule,
     LocationModule,
+    WeatherModule,
   ],
   controllers: [],
   providers: [
