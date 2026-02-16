@@ -34,21 +34,21 @@ async function bootstrap() {
 
   // Swagger Documentation
   const config = new DocumentBuilder()
-    .setTitle('Weather API')
+    .setTitle('Weather Backend API')
     .setDescription(
-      'Production-ready NestJS Weather API with location resolution and caching',
+      'Production-ready weather backend with caching, persistence, export, and air quality integration.',
     )
     .setVersion('1.0')
-    .addTag('location', 'Location resolution endpoints')
-    .addTag('weather', 'Current weather endpoints with Redis caching')
+    .addTag('location', 'Location resolution with geocoding')
+    .addTag('weather', 'Weather data with air quality, caching, persistence, and export')
     .build();
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
+  SwaggerModule.setup('api/docs', app, document);
 
   const port = configService.get<number>('app.port') || 3000;
   await app.listen(port);
 
   logger.log(`Application is running on: http://localhost:${port}/${apiPrefix}`);
-  logger.log(`Swagger documentation available at: http://localhost:${port}/api`);
+  logger.log(`Swagger documentation available at: http://localhost:${port}/api/docs`);
 }
 bootstrap();
