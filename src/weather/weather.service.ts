@@ -4,7 +4,11 @@ import {
   HttpStatus,
   Logger,
   Inject,
+  BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { Redis } from '@upstash/redis';
@@ -12,6 +16,11 @@ import { firstValueFrom, timeout, catchError } from 'rxjs';
 import { AxiosError, AxiosResponse } from 'axios';
 import { LocationService } from '../location/location.service';
 import { CurrentWeatherResponseDto } from './dto/current-weather-response.dto';
+import { CreateWeatherRequestDto } from './dto/create-weather-request.dto';
+import { UpdateWeatherRequestDto } from './dto/update-weather-request.dto';
+import { WeatherRequestResponseDto } from './dto/weather-request-response.dto';
+import { Location } from '../entities/location.entity';
+import { WeatherRequest } from '../entities/weather-request.entity';
 import { REDIS_CLIENT } from '../redis/redis.module';
 
 interface OpenWeatherResponse {
@@ -36,6 +45,10 @@ export class WeatherService {
   private readonly cacheTTL = 600; // 600 seconds = 10 minutes
 
   constructor(
+    @InjectRepository(Location)
+    private readonly locationRepository: Repository<Location>,
+    @InjectRepository(WeatherRequest)
+    private readonly weatherRequestRepository: Repository<WeatherRequest>,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
     private readonly httpService: HttpService,
     private readonly locationService: LocationService,
@@ -177,5 +190,225 @@ export class WeatherService {
     );
 
     return response.data;
+  }
+
+  // CRUD Operations for Weather Requests
+
+  async create(
+    createDto: CreateWeatherRequestDto,
+  ): Promise<WeatherRequestResponseDto> {
+    const { locationInput, startDate, endDate } = createDto;
+
+    // Step 1: Validate date range if provided
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+
+      if (start >= end) {
+        throw new BadRequestException(
+          'startDate must be before endDate',
+        );
+      }
+    }
+
+    // Step 2: Resolve location
+    this.logger.log(`Creating weather request for: ${locationInput}`);
+    const resolvedLocation =
+      await this.locationService.resolveLocation(locationInput);
+
+    // Step 3: Find or create Location entity
+    const location = await this.findOrCreateLocation(resolvedLocation);
+
+    // Step 4: Check if request already exists (for historical data)
+    if (startDate && endDate) {
+      const existingRequest = await this.findExistingWeatherRequest(
+        location.id,
+        new Date(startDate),
+        new Date(endDate),
+      );
+
+      if (existingRequest) {
+        this.logger.log('Returning existing weather request');
+        return this.mapToResponseDto(existingRequest);
+      }
+    }
+
+    // Step 5: Fetch weather data (this would be historical API in production)
+    // For now, using current weather as placeholder
+    const weatherData = await this.fetchWeatherFromAPI(
+      location.latitude,
+      location.longitude,
+    );
+
+    // Step 6: Calculate temperature statistics
+    const { avgTemperature, minTemperature, maxTemperature } =
+      this.calculateTemperatureStats(weatherData);
+
+    // Step 7: Create and save WeatherRequest
+    const weatherRequest = this.weatherRequestRepository.create({
+      locationInput,
+      locationId: location.id,
+      startDate: startDate ? new Date(startDate) : undefined,
+      endDate: endDate ? new Date(endDate) : undefined,
+      rawApiResponse: weatherData,
+      avgTemperature,
+      minTemperature,
+      maxTemperature,
+    });
+
+    const savedRequest: WeatherRequest = await this.weatherRequestRepository.save(weatherRequest);
+
+    return this.mapToResponseDto(savedRequest);
+  }
+
+  async findAll(): Promise<WeatherRequestResponseDto[]> {
+    this.logger.log('Fetching all weather requests');
+    const requests = await this.weatherRequestRepository.find({
+      order: { createdAt: 'DESC' },
+    });
+
+    return requests.map((req) => this.mapToResponseDto(req));
+  }
+
+  async findOne(id: string): Promise<WeatherRequestResponseDto> {
+    this.logger.log(`Fetching weather request: ${id}`);
+    const request = await this.weatherRequestRepository.findOne({
+      where: { id },
+    });
+
+    if (!request) {
+      throw new NotFoundException(`Weather request with ID ${id} not found`);
+    }
+
+    return this.mapToResponseDto(request);
+  }
+
+  async update(
+    id: string,
+    updateDto: UpdateWeatherRequestDto,
+  ): Promise<WeatherRequestResponseDto> {
+    const request = await this.weatherRequestRepository.findOne({
+      where: { id },
+    });
+
+    if (!request) {
+      throw new NotFoundException(`Weather request with ID ${id} not found`);
+    }
+
+    // Only allow updating locationInput
+    if (updateDto.locationInput) {
+      request.locationInput = updateDto.locationInput;
+    }
+
+    const updated = await this.weatherRequestRepository.save(request);
+
+    return this.mapToResponseDto(updated);
+  }
+
+  async remove(id: string): Promise<void> {
+    const request = await this.weatherRequestRepository.findOne({
+      where: { id },
+    });
+
+    if (!request) {
+      throw new NotFoundException(`Weather request with ID ${id} not found`);
+    }
+
+    await this.weatherRequestRepository.remove(request);
+    this.logger.log(`Deleted weather request: ${id}`);
+  }
+
+  // Helper Methods
+
+  private async findOrCreateLocation(resolvedLocation: {
+    normalizedLocation: string;
+    latitude: number;
+    longitude: number;
+  }): Promise<Location> {
+    // Try to find existing location by coordinates
+    let location = await this.locationRepository.findOne({
+      where: {
+        latitude: resolvedLocation.latitude,
+        longitude: resolvedLocation.longitude,
+      },
+    });
+
+    if (!location) {
+      // Parse normalized location
+      const parts = resolvedLocation.normalizedLocation.split(', ');
+      const name = parts[0];
+      const country = parts[parts.length - 1];
+      const state = parts.length === 3 ? parts[1] : undefined;
+
+      // Create new location
+      location = this.locationRepository.create({
+        name,
+        state,
+        country,
+        latitude: resolvedLocation.latitude,
+        longitude: resolvedLocation.longitude,
+      });
+
+      location = await this.locationRepository.save(location);
+      this.logger.log(`Created new location: ${location.id}`);
+    } else {
+      this.logger.log(`Found existing location: ${location.id}`);
+    }
+
+    return location;
+  }
+
+  private async findExistingWeatherRequest(
+    locationId: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<WeatherRequest | null> {
+    return await this.weatherRequestRepository.findOne({
+      where: {
+        locationId,
+        startDate,
+        endDate,
+      },
+    });
+  }
+
+  private calculateTemperatureStats(weatherData: OpenWeatherResponse): {
+    avgTemperature: number;
+    minTemperature: number;
+    maxTemperature: number;
+  } {
+    // For current weather, all values are the same
+    // In a real scenario with historical data, this would iterate over multiple data points
+    const temp = weatherData.main.temp;
+
+    return {
+      avgTemperature: temp,
+      minTemperature: temp,
+      maxTemperature: temp,
+    };
+  }
+
+  private mapToResponseDto(
+    weatherRequest: WeatherRequest,
+  ): WeatherRequestResponseDto {
+    return {
+      id: weatherRequest.id,
+      locationInput: weatherRequest.locationInput,
+      location: {
+        id: weatherRequest.location.id,
+        name: weatherRequest.location.name,
+        state: weatherRequest.location.state,
+        country: weatherRequest.location.country,
+        latitude: weatherRequest.location.latitude,
+        longitude: weatherRequest.location.longitude,
+      },
+      startDate: weatherRequest.startDate,
+      endDate: weatherRequest.endDate,
+      avgTemperature: weatherRequest.avgTemperature,
+      minTemperature: weatherRequest.minTemperature,
+      maxTemperature: weatherRequest.maxTemperature,
+      createdAt: weatherRequest.createdAt,
+      updatedAt: weatherRequest.updatedAt,
+    };
   }
 }
