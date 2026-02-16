@@ -37,6 +37,19 @@ interface OpenWeatherResponse {
   }>;
 }
 
+interface AirPollutionResponse {
+  list: Array<{
+    main: {
+      aqi: number;
+    };
+  }>;
+}
+
+interface AirQualityData {
+  aqi: number;
+  category: string;
+}
+
 @Injectable()
 export class WeatherService {
   private readonly logger = new Logger(WeatherService.name);
@@ -91,6 +104,12 @@ export class WeatherService {
         resolvedLocation.longitude,
       );
 
+      // Fetch air quality data (non-blocking, returns null if fails)
+      const airQuality = await this.fetchAirQuality(
+        resolvedLocation.latitude,
+        resolvedLocation.longitude,
+      );
+
       const response: CurrentWeatherResponseDto = {
         location: resolvedLocation.normalizedLocation,
         temperature: weatherData.main.temp,
@@ -98,6 +117,7 @@ export class WeatherService {
         humidity: weatherData.main.humidity,
         windSpeed: weatherData.wind.speed,
         weatherDescription: weatherData.weather[0]?.description || 'Unknown',
+        airQuality,
         fetchedAt: new Date().toISOString(),
         isCached: false,
       };
@@ -190,6 +210,60 @@ export class WeatherService {
     );
 
     return response.data;
+  }
+
+  private async fetchAirQuality(
+    lat: number,
+    lon: number,
+  ): Promise<AirQualityData | null> {
+    try {
+      const url = `${this.baseUrl}/data/2.5/air_pollution`;
+      const params = {
+        lat: lat.toString(),
+        lon: lon.toString(),
+        appid: this.apiKey,
+      };
+
+      this.logger.log(`Calling OpenWeather Air Pollution API: lat=${lat}, lon=${lon}`);
+
+      const response: AxiosResponse<AirPollutionResponse> = await firstValueFrom(
+        this.httpService.get<AirPollutionResponse>(url, { params }).pipe(
+          timeout(5000),
+          catchError((error: AxiosError) => {
+            this.logger.warn(
+              `Air Pollution API error: ${error.message}`,
+            );
+            throw error;
+          }),
+        ),
+      );
+
+      const aqi = response.data.list[0]?.main?.aqi;
+      if (!aqi) {
+        this.logger.warn('No AQI data available');
+        return null;
+      }
+
+      return {
+        aqi,
+        category: this.mapAqiToCategory(aqi),
+      };
+    } catch (error) {
+      this.logger.warn(`Failed to fetch air quality data: ${error.message}`);
+      return null;
+    }
+  }
+
+  private mapAqiToCategory(aqi: number): string {
+    const aqiMap: Record<number, string> = {
+      1: 'Good',
+      2: 'Fair',
+      3: 'Moderate',
+      4: 'Poor',
+      5: 'Very Poor',
+    };
+
+    return aqiMap[aqi] || 'Unknown';
   }
 
   // CRUD Operations for Weather Requests

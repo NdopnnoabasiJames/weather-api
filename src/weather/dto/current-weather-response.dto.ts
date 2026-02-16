@@ -1,5 +1,19 @@
 import { ApiProperty } from '@nestjs/swagger';
 
+class AirQualityDto {
+  @ApiProperty({
+    description: 'Air Quality Index (1-5)',
+    example: 1,
+  })
+  aqi: number;
+
+  @ApiProperty({
+    description: 'Air quality category',
+    example: 'Good',
+  })
+  category: string;
+}
+
 export class CurrentWeatherResponseDto {
   @ApiProperty({
     description: 'Location for which weather was retrieved',
@@ -36,6 +50,14 @@ export class CurrentWeatherResponseDto {
     example: 'Partly cloudy',
   })
   weatherDescription: string;
+
+  @ApiProperty({
+    description: 'Air quality information',
+    type: AirQualityDto,
+    required: false,
+    nullable: true,
+  })
+  airQuality: AirQualityDto | null;
 
   @ApiProperty({
     description: 'Timestamp when data was fetched',

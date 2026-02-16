@@ -15,7 +15,7 @@ export class WeatherController {
   constructor(private readonly weatherService: WeatherService) {}
 
   @Get('current')
-  @ApiOperation({ summary: 'Get current weather for a location with caching' })
+  @ApiOperation({ summary: 'Get current weather and air quality for a location with caching' })
   @ApiQuery({
     name: 'location',
     type: String,
@@ -23,7 +23,7 @@ export class WeatherController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Weather data successfully retrieved',
+    description: 'Weather and air quality data successfully retrieved',
     type: CurrentWeatherResponseDto,
   })
   @ApiResponse({
