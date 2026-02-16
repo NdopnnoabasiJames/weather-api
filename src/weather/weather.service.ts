@@ -61,26 +61,17 @@ export class WeatherService {
 
     // Step 2: Generate cache key
     const cacheKey = `weather:${resolvedLocation.latitude}:${resolvedLocation.longitude}`;
-    this.logger.log(`Cache key: ${cacheKey}`);
 
-    // Step 3: Check Redis cache
-    try {
-      const cachedData = await this.redis.get<CurrentWeatherResponseDto>(
-        cacheKey,
-      );
-
-      if (cachedData) {
-        this.logger.log('Returning cached weather data');
-        return {
-          ...cachedData,
-          isCached: true,
-        };
-      }
-    } catch (error) {
-      this.logger.warn(`Redis get error: ${error.message}`);
+    // Step 3: Check cache first - return immediately if exists
+    const cachedData = await this.getFromCache(cacheKey);
+    if (cachedData) {
+      return {
+        ...cachedData,
+        isCached: true,
+      };
     }
 
-    // Step 4: Fetch from OpenWeather API
+    // Step 4: Cache miss - attempt external API call
     try {
       const weatherData = await this.fetchWeatherFromAPI(
         resolvedLocation.latitude,
@@ -98,43 +89,60 @@ export class WeatherService {
         isCached: false,
       };
 
-      // Step 5: Store in Redis with TTL
-      try {
-        await this.redis.set(cacheKey, response, { ex: this.cacheTTL });
-        this.logger.log(`Weather data cached with ${this.cacheTTL}s TTL`);
-      } catch (error) {
-        this.logger.warn(`Redis set error: ${error.message}`);
-      }
+      // Step 5: API success - store in cache with TTL
+      await this.setInCache(cacheKey, response);
 
       return response;
     } catch (error) {
-      // Step 6: Handle API failure - try to return cached data with warning
-      this.logger.error(`OpenWeather API failed: ${error.message}`);
+      // Step 6: API failed - check cache again as fallback
+      this.logger.error(`API call failed: ${error.message}`);
 
-      try {
-        const cachedData = await this.redis.get<CurrentWeatherResponseDto>(
-          cacheKey,
-        );
-
-        if (cachedData) {
-          this.logger.warn(
-            'API failed, returning stale cached data with warning',
-          );
-          return {
-            ...cachedData,
-            isCached: true,
-            warning: 'Using cached data due to API unavailability',
-          };
-        }
-      } catch (redisError) {
-        this.logger.error(`Redis fallback failed: ${redisError.message}`);
+      const fallbackData = await this.getFromCache(cacheKey);
+      if (fallbackData) {
+        this.logger.warn('Returning stale cached data due to API failure');
+        return {
+          ...fallbackData,
+          isCached: true,
+          warning: 'Live data unavailable. Showing last cached result.',
+        };
       }
 
-      // No cache available, throw 503
+      // No cache available - throw 503
       throw new HttpException(
         'Weather service temporarily unavailable',
         HttpStatus.SERVICE_UNAVAILABLE,
       );
+    }
+  }
+
+  private async getFromCache(
+    key: string,
+  ): Promise<CurrentWeatherResponseDto | null> {
+    try {
+      const data = await this.redis.get<CurrentWeatherResponseDto>(key);
+
+      if (data) {
+        this.logger.log(`Cache hit for key: ${key}`);
+      } else {
+        this.logger.log(`Cache miss for key: ${key}`);
+      }
+
+      return data;
+    } catch (error) {
+      this.logger.warn(`Redis get error: ${error.message}`);
+      return null;
+    }
+  }
+
+  private async setInCache(
+    key: string,
+    data: CurrentWeatherResponseDto,
+  ): Promise<void> {
+    try {
+      await this.redis.set(key, data, { ex: this.cacheTTL });
+      this.logger.log(`Data cached with ${this.cacheTTL}s TTL`);
+    } catch (error) {
+      this.logger.warn(`Redis set error: ${error.message}`);
     }
   }
 
