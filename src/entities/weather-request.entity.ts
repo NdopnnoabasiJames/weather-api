@@ -29,25 +29,25 @@ export class WeatherRequest {
   location: Location;
 
   @Column({ type: 'date', nullable: true })
-  startDate: Date;
+  startDate?: Date;
 
   @Column({ type: 'date', nullable: true })
-  endDate: Date;
+  endDate?: Date;
 
   @Column({ type: 'jsonb' })
   rawApiResponse: any;
 
   @Column({ type: 'float', nullable: true })
-  avgTemperature: number;
+  avgTemperature?: number;
 
   @Column({ type: 'float', nullable: true })
-  minTemperature: number;
+  minTemperature?: number;
 
   @Column({ type: 'float', nullable: true })
-  maxTemperature: number;
+  maxTemperature?: number;
 
   @Column({ type: 'text', nullable: true })
-  note: string;
+  note?: string;
 
   @CreateDateColumn()
   createdAt: Date;

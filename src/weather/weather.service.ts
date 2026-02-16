@@ -22,33 +22,11 @@ import { WeatherRequestResponseDto } from './dto/weather-request-response.dto';
 import { Location } from '../entities/location.entity';
 import { WeatherRequest } from '../entities/weather-request.entity';
 import { REDIS_CLIENT } from '../redis/redis.module';
-
-interface OpenWeatherResponse {
-  main: {
-    temp: number;
-    feels_like: number;
-    humidity: number;
-  };
-  wind: {
-    speed: number;
-  };
-  weather: Array<{
-    description: string;
-  }>;
-}
-
-interface AirPollutionResponse {
-  list: Array<{
-    main: {
-      aqi: number;
-    };
-  }>;
-}
-
-interface AirQualityData {
-  aqi: number;
-  category: string;
-}
+import {
+  OpenWeatherResponse,
+  AirPollutionResponse,
+  AirQualityData,
+} from './interfaces/openweather.interface';
 
 @Injectable()
 export class WeatherService {

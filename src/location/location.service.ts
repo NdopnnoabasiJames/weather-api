@@ -12,14 +12,7 @@ import { firstValueFrom, timeout, catchError } from 'rxjs';
 import { AxiosError, AxiosResponse } from 'axios';
 import { ResolvedLocationResponseDto } from './dto/resolved-location-response.dto';
 import { REDIS_CLIENT } from '../redis/redis.module';
-
-interface GeocodingResult {
-  name: string;
-  lat: number;
-  lon: number;
-  country: string;
-  state?: string;
-}
+import { GeocodingResult } from './interfaces/geocoding.interface';
 
 @Injectable()
 export class LocationService {

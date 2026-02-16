@@ -19,7 +19,7 @@ export class Location {
   name: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  state: string;
+  state?: string;
 
   @Column({ type: 'varchar', length: 100 })
   country: string;
