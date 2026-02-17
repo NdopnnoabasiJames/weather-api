@@ -12,6 +12,7 @@ import databaseConfig from './config/database.config';
 import throttleConfig from './config/throttle.config';
 import openweatherConfig from './config/openweather.config';
 import redisConfig from './config/redis.config';
+import { validationSchema } from './config/env.validation';
 
 @Module({
   imports: [
@@ -19,6 +20,11 @@ import redisConfig from './config/redis.config';
       isGlobal: true,
       load: [appConfig, databaseConfig, throttleConfig, openweatherConfig, redisConfig],
       envFilePath: '.env',
+      validationSchema,
+      validationOptions: {
+        allowUnknown: true,
+        abortEarly: false,
+      },
     }),
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
