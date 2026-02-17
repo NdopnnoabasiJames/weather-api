@@ -55,18 +55,15 @@ export class WeatherService {
     }
   }
 
-  async getCurrentWeather(
-    locationQuery: string,
-  ): Promise<CurrentWeatherResponseDto> {
-    // Step 1: Resolve location
+  async getCurrentWeather(locationQuery: string,): Promise<CurrentWeatherResponseDto> {
+    // Resolve location
     this.logger.log(`Fetching weather for location: ${locationQuery}`);
-    const resolvedLocation =
-      await this.locationService.resolveLocation(locationQuery);
+    const resolvedLocation = await this.locationService.resolveLocation(locationQuery);
 
-    // Step 2: Generate cache key
+    // Generate cache key
     const cacheKey = `weather:${resolvedLocation.latitude}:${resolvedLocation.longitude}`;
 
-    // Step 3: Check cache first - return immediately if exists
+    // Check cache first - return immediately if exists
     const cachedData = await this.getFromCache(cacheKey);
     if (cachedData) {
       return {
@@ -75,7 +72,7 @@ export class WeatherService {
       };
     }
 
-    // Step 4: Cache miss - attempt external API call
+    // Cache miss - attempt external API call
     try {
       const weatherData = await this.fetchWeatherFromAPI(
         resolvedLocation.latitude,
@@ -100,12 +97,12 @@ export class WeatherService {
         isCached: false,
       };
 
-      // Step 5: API success - store in cache with TTL
+      // API success - store in cache with TTL
       await this.setInCache(cacheKey, response);
 
       return response;
     } catch (error) {
-      // Step 6: API failed - check cache again as fallback
+      // API failed - check cache again as fallback
       this.logger.error(`API call failed: ${error.message}`);
 
       const fallbackData = await this.getFromCache(cacheKey);
@@ -126,9 +123,7 @@ export class WeatherService {
     }
   }
 
-  private async getFromCache(
-    key: string,
-  ): Promise<CurrentWeatherResponseDto | null> {
+  private async getFromCache( key: string,): Promise<CurrentWeatherResponseDto | null> {
     try {
       const data = await this.redis.get<CurrentWeatherResponseDto>(key);
 

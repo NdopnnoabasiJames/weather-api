@@ -7,6 +7,7 @@ import { RedisModule } from './redis/redis.module';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
 import { LocationModule } from './location/location.module';
 import { WeatherModule } from './weather/weather.module';
+import { AppController } from './app.controller';
 import appConfig from './config/app.config';
 import databaseConfig from './config/database.config';
 import throttleConfig from './config/throttle.config';
@@ -43,7 +44,7 @@ import { validationSchema } from './config/env.validation';
     LocationModule,
     WeatherModule,
   ],
-  controllers: [],
+  controllers: [AppController],
   providers: [
     {
       provide: APP_GUARD,
