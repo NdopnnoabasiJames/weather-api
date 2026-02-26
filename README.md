@@ -7,7 +7,13 @@ A production-ready NestJS backend service for weather data retrieval, geocoding,
 The application follows a layered architecture with the following flow:
 
 ```
-Client → NestJS API → Redis Cache → OpenWeather API → PostgreSQL
+Request "London" → Check cache → [Hit] → Return cached data
+                              ↓ [Miss]
+                         Call Geocoding API → [Success] → Cache 24h → Return
+                                           ↓ [Fail]
+                                      Check Cache Again → [Hit] → Return
+                                                       ↓ [Miss]
+                                                     Throw 503
 ```
 
 **Request Flow:**
